@@ -1,4 +1,4 @@
-import os
+import os, shutil, glob
 from conans import ConanFile, CMake, tools
 from conans.errors import ConanInvalidConfiguration
 from conans.tools import Version
@@ -87,11 +87,22 @@ class ProtobufConan(ConanFile):
         cmake.build()
 
     def package(self):
+        self.output.info('self.settings.os: %s' % (self.settings.os))
+        self.output.info('self.settings.build_type: %s' % (self.settings.build_type))
+
         self.copy("LICENSE", dst="licenses", src=self._source_subfolder)
         #self.copy("BUILD", dst="licenses", src=self._source_subfolder)
         self.copy("*", dst="cmake", src=os.path.join(self._source_subfolder, "cmake"))
         cmake = self._configure_cmake()
         cmake.install()
+
+        # Do not add DEBUG_POSTFIX on non-Windows https://github.com/protocolbuffers/protobuf/pull/5484
+        if self.settings.os == "Linux" and str(self.settings.build_type).lower() == "debug":
+            shutil.copy(src=os.path.join(self.package_folder, "lib", "libprotobufd.a"),  dst=os.path.join(self.package_folder, "lib", "libprotobuf.a"))
+            shutil.copy(src=os.path.join(self.package_folder, "lib", "libprotocd.a"),  dst=os.path.join(self.package_folder, "lib", "libprotoc.a"))
+            files = [f for f in glob.glob(os.path.join(self.package_folder, "lib") + "/**", recursive=True)]
+            for f in files:
+                self.output.info('protobuf libs: %s' % (f))
 
         #self.copy("*.h", dst="include", src=os.path.join(self._source_subfolder, "include"))
         #self.copy("*.proto", dst="include", src=os.path.join(self._source_subfolder, "include"))
@@ -118,9 +129,20 @@ class ProtobufConan(ConanFile):
         self.cpp_info.libs = tools.collect_libs(self)
         self.cpp_info.libs.sort(reverse=True)
 
+        self.cpp_info.includedirs.append(os.path.join(self.package_folder, "include"))
+        #self.cpp_info.includedirs.append(os.path.join("include", "google"))
+
+        self.cpp_info.lib_paths.append(os.path.join(self.package_folder, "lib"))
+
+        self.cpp_info.bin_paths.append(os.path.join(self.package_folder, "bin"))
+
         bindir = os.path.join(self.package_folder, "bin")
         self.output.info("Appending PATH environment variable: {}".format(bindir))
-        self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
+        self.env_info.PATH.append(bindir)
+
+        libdir = os.path.join(self.package_folder, "lib")
+        self.output.info("Appending PATH environment variable: {}".format(libdir))
+        self.env_info.PATH.append(libdir)
 
         protoc = "protoc.exe" if self.settings.os_build == "Windows" else "protoc"
         self.env_info.PROTOC_BIN = os.path.normpath(os.path.join(self.package_folder, "bin", protoc))
@@ -140,6 +162,6 @@ class ProtobufConan(ConanFile):
         self.cpp_info.names["cmake_find_package_multi"] = "Protobuf"
 
     # see `conan install . -g deploy` in https://docs.conan.io/en/latest/devtools/running_packages.html
-    def deploy(self):
+    #def deploy(self):
         # self.copy("*", dst="/usr/local/bin", src="bin", keep_path=False)
-        self.copy("*", dst="bin", src="bin", keep_path=False)
+    #    self.copy("*", dst="bin", src="bin", keep_path=False)
