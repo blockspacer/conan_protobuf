@@ -130,6 +130,7 @@ class ProtobufConan(ConanFile):
         self.cpp_info.libs.sort(reverse=True)
 
         self.cpp_info.includedirs.append(os.path.join(self.package_folder, "include"))
+        self.cpp_info.includedirs.append(self.package_folder)
         #self.cpp_info.includedirs.append(os.path.join("include", "google"))
 
         self.cpp_info.lib_paths.append(os.path.join(self.package_folder, "lib"))
